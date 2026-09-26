@@ -3,16 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PK → Address Extractor (Offline)</title>
-<!-- Untuk OFFLINE PENUH: download file ini ke folder yang sama dengan HTML, lalu ganti src jadi ./ethers.umd.min.js
-     https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js -->
+<title>PK → Address Extractor + Batch Balance (Offline core)</title>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
 <script>if(!window.ethers){document.write('<script src="https://unpkg.com/ethers@6.13.4/dist/ethers.umd.min.js"><\/script>');}</script>
 <style>
-  :root{--bg:#0b0f14;--card:#131a22;--line:#22303f;--txt:#e7eef7;--mut:#8fa3b8;--acc:#3b82f6;--ok:#28c76f;--warn:#ffb020;--err:#ff5c5c}
+  :root{--card:#131a22;--line:#22303f;--txt:#e7eef7;--mut:#8fa3b8;--acc:#3b82f6;--ok:#28c76f;--warn:#ffb020;--err:#ff5c5c}
   *{box-sizing:border-box}
   body{margin:0;background:linear-gradient(180deg,#070b10,#0b0f14 40%);color:var(--txt);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;padding:18px}
-  .wrap{max-width:900px;margin:0 auto}
+  .wrap{max-width:920px;margin:0 auto}
   h1{font-size:20px;margin:0 0 4px}
   .sub{color:var(--mut);font-size:13px;margin-bottom:14px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:16px;margin-bottom:14px}
@@ -29,7 +27,7 @@
   .btn-danger{background:#7a1f1f;color:#fff}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .row{display:flex;gap:10px;flex-wrap:wrap}
-  .row>div{flex:1;min-width:220px}
+  .row>div{flex:1;min-width:200px}
   .stats{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--mut);margin-top:8px}
   .stats b{color:var(--txt)}
   table{width:100%;border-collapse:collapse;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
@@ -40,80 +38,77 @@
   .ok{color:var(--ok)} .err{color:var(--err)} .warnc{color:var(--warn)} .muted{color:var(--mut)}
   .outbox{background:#0c1219;border:1px solid var(--line);border-radius:10px;padding:10px;font-family:ui-monospace,monospace;font-size:12.5px;white-space:pre-wrap;word-break:break-all;margin-top:10px;max-height:260px;overflow:auto}
   .hint{color:var(--mut);font-size:11.8px;margin-top:-4px}
+  progress{width:100%;height:10px;border-radius:6px;overflow:hidden}
   #boot{position:fixed;inset:0;background:#070b10;display:flex;align-items:center;justify-content:center;z-index:99;color:var(--mut)}
 </style>
 </head>
 <body>
 <div id="boot">memuat…</div>
 <div class="wrap">
-  <h1>PK → Address Extractor <span class="muted">(offline)</span></h1>
-  <div class="sub">Derive alamat dari private key, salin semuanya sekaligus. <b>Tidak ada fungsi kirim dana</b> — alat ini hanya membaca/menghitung.</div>
+  <h1>PK → Address Extractor <span class="muted">+ batch saldo</span></h1>
+  <div class="sub">Derive alamat dari private key (offline, tanpa RPC) + opsi cek saldo banyak alamat pakai <b>batch JSON-RPC</b> (Alchemy).</div>
 
   <div class="warnbox">
-    <b>Keamanan:</b> Semua private key diproses <b>hanya di browser Anda</b>, tidak dikirim ke server mana pun (halaman ini tidak punya backend).<br>
-    • Jangan buka di device/browser yang tidak Anda percaya.<br>
-    • Jangan screen-record / screen-share saat memakai.<br>
-    • Tombol <b>Clear</b> menghapus semua dari memory + localStorage.<br>
-    • Jika memakai "Cek saldo (Alchemy)": yang dikirim ke RPC hanya <b>alamat</b>, <b>bukan private key</b>.
+    <b>Keamanan:</b> Private key diproses <b>hanya di browser Anda</b>. Halaman ini tanpa backend.<br>
+    • Derive alamat = 100% lokal, tidak menyentuh jaringan sama sekali (bebas jumlah alamat).<br>
+    • Cek saldo: yang dikirim ke RPC hanya <b>alamat</b> — private key tidak pernah ikut.<br>
+    • Jangan buka di device/browser yang tidak Anda percaya; jangan screen-record saat memakai.<br>
+    • Tombol <b>Clear</b> menghapus memory + localStorage.
   </div>
 
   <div class="card">
     <h2>1 · Input private key</h2>
     <label>Private key (satu per baris, dengan/tanpa 0x)</label>
-    <textarea id="pk" placeholder="0xabc123...&#10;def456...&#10;..." autocomplete="off" spellcheck="false"></textarea>
+    <textarea id="pk" placeholder="0xabc123...&#10;def456..." autocomplete="off" spellcheck="false"></textarea>
     <div class="row">
-      <div>
-        <label>Atau impor dari file (.txt / .csv)</label>
-        <input type="file" id="file" accept=".txt,.csv,text/plain" />
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <div class="actions" style="margin-top:0"><button class="btn btn-danger" id="clearBtn">Clear</button></div>
-      </div>
+      <div><label>Impor dari file (.txt / .csv)</label><input type="file" id="file" accept=".txt,.csv,text/plain" /></div>
+      <div><label>&nbsp;</label><div class="actions" style="margin-top:0"><button class="btn btn-danger" id="clearBtn">Clear</button></div></div>
     </div>
-
     <div class="row" style="margin-top:6px">
-      <div>
-        <label>Format output alamat</label>
-        <select id="fmt">
-          <option value="checksum">Checksum (EIP-55)</option>
-          <option value="lower">lowercase</option>
-        </select>
+      <div><label>Format alamat</label>
+        <select id="fmt"><option value="checksum">Checksum (EIP-55)</option><option value="lower">lowercase</option></select>
       </div>
-      <div>
-        <label>Urutkan</label>
-        <select id="sort">
-          <option value="input">Sesuai urutan input</option>
-          <option value="addr">Berdasarkan alamat</option>
-        </select>
+      <div><label>Urutkan</label>
+        <select id="sort"><option value="input">Sesuai input</option><option value="addr">Berdasarkan alamat</option></select>
       </div>
     </div>
-
     <div class="actions">
       <button class="btn btn-primary" id="derive">⟶ Derive Semua Alamat</button>
       <button class="btn btn-ghost" id="saveToggle">Simpan key di browser: OFF</button>
     </div>
-    <div class="hint">Kalau "Simpan" OFF (default), key hilang saat reload.</div>
+  </div>
+
+  <div class="card">
+    <h2>🔎 Cari Private Key dari Alamat</h2>
+    <div class="row">
+      <div style="flex:3"><input id="searchAddr" placeholder="paste alamat (0x...) di sini — bisa sebagian" autocomplete="off" spellcheck="false" /></div>
+      <div style="flex:1"><button class="btn btn-primary" id="searchBtn" style="width:100%">Cari PK</button></div>
+    </div>
+    <div class="hint">Cari di hasil scan (harus klik "Derive Semua Alamat" dulu, atau otomatis kalau key tersimpan).</div>
+    <div id="searchOut"></div>
   </div>
 
   <div class="card" id="resultCard" style="display:none">
-    <h2>2 · Hasil</h2>
+    <h2>3 · Hasil</h2>
     <div class="stats" id="stats"></div>
     <div class="actions">
       <button class="btn btn-ok" id="copyAll">Copy Semua Alamat</button>
-      <button class="btn btn-ghost" id="copyCsv">Copy CSV (index,address)</button>
+      <button class="btn btn-ghost" id="copyUnique">Copy Alamat Unik</button>
+      <button class="btn btn-ghost" id="copyFunded">Copy yang Ada Saldo</button>
       <button class="btn btn-ghost" id="dlTxt">Download .txt</button>
       <button class="btn btn-ghost" id="dlCsv">Download .csv</button>
     </div>
-    <div class="actions" style="margin-top:6px">
-      <button class="btn btn-ghost" id="copyUnique">Copy Alamat Unik Saja</button>
-    </div>
 
     <div class="card" style="margin:14px 0 0;background:#0e1116">
-      <h2 style="margin-bottom:8px">Opsi: cek saldo native (butuh Alchemy — hanya alamat yang dikirim)</h2>
+      <h2 style="margin-bottom:8px">4 · Cek saldo massal (batch JSON-RPC — disarankan Alchemy)</h2>
       <div class="row">
-        <div style="flex:2"><input id="alchemyKey" placeholder="Alchemy API key" autocomplete="off" spellcheck="false"></div>
-        <div style="flex:1">
+        <div style="flex:2"><input id="rpcUrl" placeholder="https://base-mainnet.g.alchemy.com/v2/&lt;APIKEY&gt;" autocomplete="off" spellcheck="false"></div>
+        <div><button class="btn btn-primary" id="balBtn" disabled>Cek Saldo (Batch)</button></div>
+      </div>
+      <div class="row">
+        <div><label>Batch size (alamat per request)</label><input id="batchSize" value="50" /></div>
+        <div><label>Jeda antar-batch (ms)</label><input id="batchDelay" value="120" /></div>
+        <div><label>Network (label)</label>
           <select id="chain">
             <option value="https://base-mainnet.g.alchemy.com/v2/">Base</option>
             <option value="https://eth-mainnet.g.alchemy.com/v2/">Ethereum</option>
@@ -124,9 +119,15 @@
             <option value="https://base-sepolia.g.alchemy.com/v2/">Base Sepolia</option>
           </select>
         </div>
-        <div><button class="btn btn-primary" id="balBtn" disabled>Cek Saldo</button></div>
       </div>
-      <div class="hint">Default OFF. Kalau dipakai, hanya alamat yang dikirim ke Alchemy — private key tetap tidak keluar dari browser.</div>
+      <div class="actions" style="margin-top:0">
+        <button class="btn btn-ghost" id="fillAlchemy">Pakai Alchemy dari daftar network di atas</button>
+      </div>
+      <div class="hint">
+        Cara kerja: banyak <code>eth_getBalance</code> <b>dikirim dalam 1 request HTTP</b> (JSON-RPC batch). Ini yang bikin ribuan alamat tetap aman dari 429.
+        Kalau Alchemy menolak (batch terlalu besar), kecilkan batch size (mis. 25–50).
+      </div>
+      <progress id="prog" max="100" value="0" style="margin-top:8px"></progress>
     </div>
 
     <div class="outbox" id="outbox" style="display:none"></div>
@@ -139,10 +140,12 @@
   </div>
 
   <div class="card">
-    <h2>Catatan offline</h2>
+    <h2>Catatan</h2>
     <div class="hint" style="font-size:12.5px;line-height:1.6">
-      Untuk offline penuh: saat online, buka <code>https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js</code>, simpan sebagai
-      <code>ethers.umd.min.js</code> di folder yang sama dengan file HTML ini, lalu ganti baris <code>src=</code> di atas menjadi <code>src="./ethers.umd.min.js"</code>.
+      • Derive alamat: tanpa RPC → tidak ada limit jumlah.<br>
+      • Cek saldo: minimal 1 alamat per request, tapi batch sampai 50 alamat/request → 1.000 alamat ≈ 20 request saja (jauh lebih aman).<br>
+      • RPC publik (base.org dsb) biasanya membatasi batch & rate → untuk skala banyak, <b>pakai Alchemy</b>.<br>
+      • Offline penuh: simpan <code>ethers.umd.min.js</code> di folder yang sama lalu ubah <code>src</code> jadi <code>./ethers.umd.min.js</code>.
     </div>
   </div>
 </div>
@@ -154,110 +157,196 @@ document.addEventListener("DOMContentLoaded", () => {
   const LS="pk2addr_keys";
   let results=[]; let saveEnabled=false;
 
-  function fmtAddr(w){ return $("fmt").value==="lower" ? w.address.toLowerCase() : w.address; }
-  function parseKeys(text){
-    return text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.startsWith("0x")?s:"0x"+s);
-  }
+  const fmtAddr=w=>$("fmt").value==="lower"?w.address.toLowerCase():w.address;
+  const parseKeys=t=>t.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.startsWith("0x")?s:"0x"+s);
 
   function derive(){
-    if(!window.ethers){ alert("ethers.js gagal dimuat (butuh internet saat pertama buka, atau pakai ethers.umd.min.js lokal)."); return; }
+    if(!window.ethers){ alert("ethers.js gagal dimuat."); return; }
     const keys=parseKeys($("pk").value);
-    if(keys.length===0){ alert("Belum ada private key."); return; }
+    if(!keys.length){ alert("Belum ada private key."); return; }
     results=[]; const seen=new Set(); let invalid=0, dup=0;
     keys.forEach((pk,i)=>{
       try{
-        const w=new ethers.Wallet(pk);
-        const addr=fmtAddr(w); const k=addr.toLowerCase();
+        const w=new ethers.Wallet(pk); const addr=fmtAddr(w); const k=addr.toLowerCase();
         let isDup=false; if(seen.has(k)){ dup++; isDup=true; } else seen.add(k);
-        results.push({index:i+1, address:addr, isDup, balance:null, error:null});
-      }catch(e){
-        invalid++;
-        results.push({index:i+1, address:null, error:(e.shortMessage||e.message||"invalid key")});
-      }
+        results.push({index:i+1,address:addr,isDup,balance:null,error:null,pk:pk});
+      }catch(e){ invalid++; results.push({index:i+1,address:null,error:(e.shortMessage||e.message||"invalid key"),pk:pk}); }
     });
     if($("sort").value==="addr") results.sort((a,b)=>(a.address||"~").localeCompare(b.address||"~"));
-    render(keys.length, invalid, dup);
+    render(keys.length,invalid,dup);
   }
 
-  function render(total, invalid, dup){
+  function render(total,invalid,dup){
     $("resultCard").style.display="block";
     const valid=results.filter(r=>r.address).length;
     const uniq=new Set(results.filter(r=>r.address).map(r=>r.address.toLowerCase())).size;
     $("stats").innerHTML=
-      `<div>Total input: <b>${total}</b></div><div>Valid: <b class="ok">${valid}</b></div>`+
-      `<div>Alamat unik: <b>${uniq}</b></div><div>Duplikat: <b class="warnc">${dup}</b></div>`+
-      `<div>Tidak valid: <b class="err">${invalid}</b></div>`;
+      `<div>Input: <b>${total}</b></div><div>Valid: <b class="ok">${valid}</b></div>`+
+      `<div>Unik: <b>${uniq}</b></div><div>Duplikat: <b class="warnc">${dup}</b></div>`+
+      `<div>Invalid: <b class="err">${invalid}</b></div>`;
     const tb=$("table").querySelector("tbody"); tb.innerHTML="";
     results.forEach((r,i)=>{
       const tr=document.createElement("tr");
-      tr.innerHTML = `<td class="idx">${i+1}</td>`+
-        (r.address
-          ? `<td>${r.address}${r.isDup?' <span class="warnc">(dup)</span>':''}</td><td class="muted" id="bal-${i}">—</td>`+
-            `<td><button class="btn btn-ghost mini" data-copy="${r.address}">Copy</button></td>`
-          : `<td class="err">${r.error}</td><td>—</td><td>—</td>`);
+      tr.innerHTML=`<td class="idx">${i+1}</td>`+(r.address
+        ? `<td>${r.address}${r.isDup?' <span class="warnc">(dup)</span>':''}</td><td class="muted" id="bal-${i}">—</td>`+
+          `<td><button class="btn btn-ghost mini" data-copy="${r.address}">Copy</button></td>`
+        : `<td class="err">${r.error}</td><td>—</td><td>—</td>`);
       tb.appendChild(tr);
     });
-    $("balBtn").disabled = valid===0; $("outbox").style.display="none";
+    $("balBtn").disabled=valid===0;
+    searchPK();
   }
 
-  function addressesArray(uniqueOnly){
-    let arr=results.filter(r=>r.address).map(r=>r.address);
-    if(uniqueOnly){ const s=new Set(); arr=arr.filter(a=>{const k=a.toLowerCase(); if(s.has(k))return false; s.add(k); return true;}); }
-    return arr;
+  /* ---------- cari PK dari alamat ---------- */
+  function searchPK(){
+    const q=($("searchAddr").value||"").trim().toLowerCase();
+    const out=$("searchOut");
+    if(!q){ out.innerHTML=""; return; }
+    if(!results.length){ out.innerHTML='<div class="errbox">Belum ada hasil scan. Klik "Derive Semua Alamat" dulu.</div>'; return; }
+    const hit=results.filter(r=>r.address && r.address.toLowerCase().includes(q));
+    if(!hit.length){ out.innerHTML='<div class="errbox">Alamat tidak ditemukan di hasil scan.</div>'; return; }
+    out.innerHTML=hit.map(r=>
+      '<div class="card" style="background:#0e1116;margin-top:12px">'+
+        '<div style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;word-break:break-all">'+
+          '<div><b>Address:</b> '+r.address+'</div>'+
+          '<div style="margin-top:6px"><b>Private key:</b> <span class="warnc">'+r.pk+'</span></div>'+
+        '</div>'+
+        '<div class="actions">'+
+          '<button class="btn btn-ok mini" data-copypk="'+r.pk+'">Copy PK</button>'+
+          '<button class="btn btn-ghost mini" data-copyaddr="'+r.address+'">Copy Address</button>'+
+        '</div>'+
+      '</div>').join("");
   }
-  async function copyText(t, btn, okLabel){
+
+  const uniqAddrs=()=>{ const s=new Set(),out=[]; results.forEach(r=>{ if(r.address){ const k=r.address.toLowerCase(); if(!s.has(k)){s.add(k);out.push(r.address);} } }); return out; };
+  const allAddrs =()=>results.filter(r=>r.address).map(r=>r.address);
+  const fundedAddrs=()=>{ const s=new Set(),out=[]; results.forEach(r=>{ if(r.address && r.balance && r.balance>0n){ const k=r.address.toLowerCase(); if(!s.has(k)){s.add(k);out.push(r.address);} } }); return out; };
+
+  async function copyText(t,btn,ok){
     try{ await navigator.clipboard.writeText(t); }
     catch(e){ const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove(); }
-    if(btn){ const o=btn.textContent; btn.textContent=okLabel||"Tercopy ✓"; setTimeout(()=>btn.textContent=o,1400); }
+    if(btn){ const o=btn.textContent; btn.textContent=ok||"Tercopy ✓"; setTimeout(()=>btn.textContent=o,1400); }
   }
   function download(name,text){
-    const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
-    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+    const b=new Blob([text],{type:"text/plain;charset=utf-8"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   }
-  async function checkBalances(){
-    const key=$("alchemyKey").value.trim();
-    if(!key){ alert("Isi Alchemy API key (atau biarkan kosong kalau tidak perlu cek saldo)."); return; }
-    const prov=new ethers.JsonRpcProvider($("chain").value+key);
-    const addrs=addressesArray(true);
-    $("balBtn").disabled=true; $("balBtn").textContent="Cek...";
-    let ok=0, fail=0;
-    for(const a of addrs){
-      const idx=results.findIndex(r=>r.address && r.address.toLowerCase()===a.toLowerCase());
-      const cell=document.getElementById("bal-"+idx);
+
+  /* ---------- BATCHED balance check (JSON-RPC batch) ---------- */
+  async function fetchJson(url, payload, tries=4){
+    let wait=500, lastErr;
+    for(let i=0;i<tries;i++){
       try{
-        const wei=await prov.getBalance(a); const eth=Number(ethers.formatEther(wei));
-        if(cell) cell.innerHTML = eth>0 ? `<b class="ok">${eth}</b>` : `<span class="muted">0</span>`;
-        ok++;
-      }catch(e){ if(cell) cell.textContent="err"; fail++; }
+        const res=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+        if(res.status===429 || res.status===503){ lastErr=new Error("HTTP "+res.status+" (rate limit)"); }
+        else if(!res.ok){ lastErr=new Error("HTTP "+res.status); }
+        else return await res.json();
+      }catch(e){ lastErr=e; }
+      await new Promise(r=>setTimeout(r,wait)); wait*=2;
     }
-    $("balBtn").disabled=false; $("balBtn").textContent="Cek Saldo";
-    $("outbox").style.display="block";
-    $("outbox").textContent=`Selesai cek saldo: ${ok} ok, ${fail} gagal. (Alamat saja yang dikirim ke Alchemy.)`;
+    throw lastErr||new Error("request gagal");
   }
+
+  async function checkBalances(){
+    let endpoint=($("rpcUrl").value||"").trim();
+    if(!endpoint){
+      const k=prompt("Masukkan Alchemy API key (untuk network di dropdown):");
+      if(!k) return;
+      endpoint=$("chain").value+k.trim();
+      $("rpcUrl").value=endpoint.replace(/\/v2\/.+$/,"/v2/***");
+    }
+    const addrs=uniqAddrs();
+    if(!addrs.length){ alert("Belum ada alamat."); return; }
+    const size=Math.max(1, Math.min(500, parseInt($("batchSize").value||"50",10)));
+    const delay=Math.max(0, parseInt($("batchDelay").value||"120",10));
+
+    $("balBtn").disabled=true; $("balBtn").textContent="Mengecek...";
+    const prog=$("prog"); prog.value=0; prog.max=addrs.length;
+    let ok=0, fail=0, reqCount=0;
+    const started=Date.now();
+
+    for(let i=0;i<addrs.length;i+=size){
+      const chunk=addrs.slice(i,i+size);
+      const payload=chunk.map((a,idx)=>({jsonrpc:"2.0",id:idx,method:"eth_getBalance",params:[a,"latest"]}));
+      let arr;
+      try{
+        arr=await fetchJson(endpoint,payload);
+        reqCount++;
+      }catch(e){
+        fail+=chunk.length;
+        chunk.forEach(a=>{ const idx=results.findIndex(r=>r.address && r.address.toLowerCase()===a.toLowerCase()); const c=document.getElementById("bal-"+idx); if(c) c.innerHTML='<span class="err">err</span>'; });
+        prog.value=Math.min(addrs.length, i+chunk.length);
+        continue;
+      }
+      if(!Array.isArray(arr)) arr=[arr];
+      arr.forEach(r=>{
+        const a=chunk[Number(r.id)];
+        if(!a) return;
+        const idx=results.findIndex(x=>x.address && x.address.toLowerCase()===a.toLowerCase());
+        const cell=document.getElementById("bal-"+idx);
+        if(r && r.result){
+          const wei=BigInt(r.result);
+          results[idx].balance=wei;
+          const eth=Number(ethers.formatEther(wei));
+          if(cell) cell.innerHTML = eth>0 ? `<b class="ok">${eth}</b>` : `<span class="muted">0</span>`;
+          ok++;
+        }else{
+          if(cell) cell.textContent="?";
+          fail++;
+        }
+      });
+      prog.value=Math.min(addrs.length, i+chunk.length);
+      if(delay) await new Promise(r=>setTimeout(r,delay));
+    }
+
+    const funded=fundedAddrs().length;
+    $("balBtn").disabled=false; $("balBtn").textContent="Cek Saldo (Batch)";
+    $("outbox").style.display="block";
+    $("outbox").textContent=
+      `Selesai.\n`+
+      `Alamat dicek   : ${addrs.length}\n`+
+      `Request HTTP   : ${reqCount} (batch size ${size})\n`+
+      `Sukses / gagal : ${ok} / ${fail}\n`+
+      `Punya saldo >0 : ${funded}\n`+
+      `Durasi         : ${((Date.now()-started)/1000).toFixed(1)}s\n`+
+      `Catatan        : hanya ALAMAT yang dikirim ke RPC. Private key tidak keluar dari browser.`;
+  }
+
   function setSave(on){
     saveEnabled=on; $("saveToggle").textContent="Simpan key di browser: "+(on?"ON":"OFF");
-    if(on){ try{ localStorage.setItem(LS,$("pk").value); }catch(e){} }
-    else { try{ localStorage.removeItem(LS); }catch(e){} }
+    if(on){ try{ localStorage.setItem(LS,$("pk").value); }catch(e){} } else { try{ localStorage.removeItem(LS); }catch(e){} }
   }
 
   $("derive").onclick=derive;
   $("fmt").onchange=derive; $("sort").onchange=derive;
-  $("clearBtn").onclick=()=>{ $("pk").value=""; results=[]; $("resultCard").style.display="none"; try{localStorage.removeItem(LS);}catch(e){} setSave(false); };
+  $("clearBtn").onclick=()=>{ $("pk").value=""; results=[]; $("resultCard").style.display="none"; try{localStorage.removeItem(LS)}catch(e){} setSave(false); };
   $("saveToggle").onclick=()=>setSave(!saveEnabled);
   $("pk").addEventListener("input",()=>{ if(saveEnabled){ try{ localStorage.setItem(LS,$("pk").value); }catch(e){} } });
-  $("file").addEventListener("change",e=>{
-    const f=e.target.files[0]; if(!f) return;
-    const r=new FileReader(); r.onload=()=>{ $("pk").value=String(r.result||"").trim(); if(saveEnabled) setSave(true); }; r.readAsText(f);
-  });
-  $("copyAll").onclick=e=>copyText(addressesArray(false).join("\n"), e.target, "Tercopy ✓");
-  $("copyUnique").onclick=e=>copyText(addressesArray(true).join("\n"), e.target, "Tercopy ✓");
-  $("copyCsv").onclick=e=>{ const rows=results.filter(r=>r.address).map((r,i)=>`${i+1},${r.address}`); copyText("index,address\n"+rows.join("\n"), e.target, "Tercopy ✓"); };
-  $("dlTxt").onclick=()=>download("addresses.txt", addressesArray(true).join("\n")+"\n");
-  $("dlCsv").onclick=()=>{ const rows=results.filter(r=>r.address).map((r,i)=>`${i+1},${r.address}`); download("addresses.csv","index,address\n"+rows.join("\n")+"\n"); };
+  $("file").addEventListener("change",e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ $("pk").value=String(r.result||"").trim(); if(saveEnabled) setSave(true); }; r.readAsText(f); });
+  $("copyAll").onclick=e=>copyText(allAddrs().join("\n"),e.target,"Tercopy ✓");
+  $("copyUnique").onclick=e=>copyText(uniqAddrs().join("\n"),e.target,"Tercopy ✓");
+  $("copyFunded").onclick=e=>{ const f=fundedAddrs(); if(!f.length){ alert("Belum ada hasil cek saldo (atau tidak ada yang >0)."); return; } copyText(f.join("\n"),e.target,"Tercopy ✓"); };
+  $("dlTxt").onclick=()=>download("addresses.txt", uniqAddrs().join("\n")+"\n");
+  $("dlCsv").onclick=()=>{
+    const rows=results.filter(r=>r.address).map((r,i)=>{
+      const bal=(r.balance!=null)?","+ethers.formatEther(r.balance):",";
+      return `${i+1},${r.address}${bal}`;
+    });
+    download("addresses.csv","index,address,balance\n"+rows.join("\n")+"\n");
+  };
   $("balBtn").onclick=checkBalances;
-  $("table").addEventListener("click",e=>{ const b=e.target.closest("[data-copy]"); if(!b) return; copyText(b.getAttribute("data-copy"), b, "✓"); });
-  try{ const saved=localStorage.getItem(LS); if(saved){ $("pk").value=saved; setSave(true); } }catch(e){}
+  $("searchBtn").onclick=searchPK;
+  $("searchAddr").addEventListener("input",searchPK);
+  $("searchOut").addEventListener("click",e=>{
+    const pk=e.target.closest("[data-copypk]");
+    if(pk){ copyText(pk.getAttribute("data-copypk"),pk,"✓"); return; }
+    const ad=e.target.closest("[data-copyaddr]");
+    if(ad){ copyText(ad.getAttribute("data-copyaddr"),ad,"✓"); }
+  });
+  $("fillAlchemy").onclick=()=>{ const k=prompt("Alchemy API key:"); if(!k) return; $("rpcUrl").value=$("chain").value+k.trim(); };
+  $("table").addEventListener("click",e=>{ const b=e.target.closest("[data-copy]"); if(!b) return; copyText(b.getAttribute("data-copy"),b,"✓"); });
+  try{ const s=localStorage.getItem(LS); if(s){ $("pk").value=s; setSave(true); if(window.ethers) derive(); } }catch(e){}
 });
 </script>
 </body>
